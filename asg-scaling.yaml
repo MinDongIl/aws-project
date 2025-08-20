@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ASG target-tracking scaling policy and CPU alarm'
+
+Parameters:
+  AutoScalingGroupName:
+    Type: String
+    Description: 'Auto Scaling Group name'
+  CpuTargetPercent:
+    Type: Number
+    Default: 60
+    Description: 'Target average CPU percent'
+  CpuAlarmThreshold:
+    Type: Number
+    Default: 80
+    Description: 'CPU alarm threshold percent'
+
+Resources:
+  CpuTargetTrackingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: !Ref CpuTargetPercent
+
+  HighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AutoScalingGroupName}-cpu-${CpuAlarmThreshold}-alarm'
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: !Ref CpuAlarmThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      TreatMissingData: notBreaching
+
+Outputs:
+  PolicyName:
+    Description: 'Scaling policy logical name'
+    Value: !Ref CpuTargetTrackingPolicy
+  AlarmName:
+    Description: 'CPU alarm logical name'
+    Value: !Ref HighCpuAlarm

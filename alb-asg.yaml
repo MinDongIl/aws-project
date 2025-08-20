@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ALB + Auto Scaling Group with public/private subnet switch and Graviton default'
+
+Parameters:
+  VpcId:
+    Type: String
+  PublicSubnets:
+    Type: CommaDelimitedList
+  PrivateSubnets:
+    Type: CommaDelimitedList
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+  InstanceType:
+    Type: String
+    Default: t4g.micro            # CHANGED: cost saver (Graviton)
+  UsePublicSubnetsForASG:
+    Type: String
+    Default: 'true'               # CHANGED: default to public to avoid NAT
+    AllowedValues: ['true','false']
+    Description: 'true: place ASG in public subnets (no NAT needed); false: private subnets'
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    # Amazon Linux 2 ARM64 (same family as original AL2 but arm)
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-arm64-gp2
+
+Conditions:
+  ASGInPublic: !Equals [!Ref UsePublicSubnetsForASG, 'true']
+
+Resources:
+  ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP from anywhere
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+      Tags: [ { Key: Name, Value: alb-sg } ]
+
+  InstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP from ALB only
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, SourceSecurityGroupId: !Ref ALBSG }
+      Tags: [ { Key: Name, Value: asg-sg } ]
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: traffic-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref PublicSubnets
+      SecurityGroups: [!Ref ALBSG]
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      HealthCheckPath: /
+      Matcher: { HttpCode: 200 }
+      Tags: [ { Key: Name, Value: asg-target } ]
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - { Type: forward, TargetGroupArn: !Ref TargetGroup }
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: asg-template
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        ImageId: !Ref LatestAmiId
+        SecurityGroupIds: [!Ref InstanceSG]
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: !If [ASGInPublic, true, false]
+            DeviceIndex: 0
+            Groups: [!Ref InstanceSG]
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum -y update
+            amazon-linux-extras install -y nginx1
+            systemctl enable nginx
+            systemctl start nginx
+            echo "Hello from Auto Scaling Group instance" > /usr/share/nginx/html/index.html
+
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !If [ASGInPublic, !Ref PublicSubnets, !Ref PrivateSubnets]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 3
+      DesiredCapacity: 1
+      TargetGroupARNs: [!Ref TargetGroup]
+      Tags:
+        - { Key: Name, Value: asg-instance, PropagateAtLaunch: true }
+
+Outputs:
+  ALBDNSName:
+    Description: 'ALB DNS Name'
+    Value: !GetAtt ALB.DNSName

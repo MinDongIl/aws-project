@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ElastiCache for Redis (HA optional) with SG restricted to App SG'
+
+Parameters:
+  VpcId:
+    Type: String
+  PrivateSubnets:
+    Type: CommaDelimitedList
+  AppSecurityGroupId:
+    Type: String
+  NodeType:
+    Type: String
+    Default: cache.t4g.micro
+  EngineVersion:
+    Type: String
+    Default: 7.1
+  EnableHA:
+    Type: String
+    Default: 'false'        # CHANGED: default to single node (cost saver)
+    AllowedValues: ['true','false']
+
+Conditions:
+  UseHA: !Equals [!Ref EnableHA, 'true']
+
+Resources:
+  RedisSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Allow Redis 6379 from App SG only'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 6379, ToPort: 6379, SourceSecurityGroupId: !Ref AppSecurityGroupId }
+      Tags: [ { Key: Name, Value: redis-sg } ]
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: 'Subnet group for Redis'
+      SubnetIds: !Ref PrivateSubnets
+      CacheSubnetGroupName: !Sub 'redis-subnet-${AWS::StackName}'
+
+  # HA: ReplicationGroup
+  RedisReplicationGroup:
+    Condition: UseHA
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupDescription: 'Traffic project Redis (HA)'
+      Engine: redis
+      EngineVersion: !Ref EngineVersion
+      CacheNodeType: !Ref NodeType
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      SecurityGroupIds: [!Ref RedisSG]
+      AutomaticFailoverEnabled: true
+      MultiAZEnabled: true
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 1
+      AtRestEncryptionEnabled: true
+      TransitEncryptionEnabled: true
+      AutoMinorVersionUpgrade: true
+
+  # Non-HA: Single-node CacheCluster
+  RedisCluster:
+    Condition: !Not [!Ref UseHA]
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      EngineVersion: !Ref EngineVersion
+      CacheNodeType: !Ref NodeType
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds: [!Ref RedisSG]
+      AutoMinorVersionUpgrade: true
+
+Outputs:
+  PrimaryEndpoint:
+    Description: 'Redis primary endpoint (hostname)'
+    Value: !If
+      - UseHA
+      - !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+      - !GetAtt RedisCluster.ConfigurationEndpoint.Address
+    Export: { Name: traffic:RedisPrimary }
+
+  ReaderEndpoint:
+    Description: 'Redis reader endpoint (hostname)'
+    Value: !If
+      - UseHA
+      - !GetAtt RedisReplicationGroup.ReaderEndPoint.Address
+      - !GetAtt RedisCluster.ConfigurationEndpoint.Address
+    Export: { Name: traffic:RedisReader }
+
+  RedisSecurityGroupId:
+    Description: 'Security Group ID for Redis'
+    Value: !Ref RedisSG
