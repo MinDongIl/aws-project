@@ -1,0 +1,211 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Base VPC for traffic management project (2AZ, public/private, no NAT)'
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.11.0.0/16
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.11.0.0/20
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.11.16.0/20
+  PrivateSubnet1Cidr:
+    Type: String
+    Default: 10.11.128.0/20
+  PrivateSubnet2Cidr:
+    Type: String
+    Default: 10.11.144.0/20
+  Environment:
+    Type: String
+    Default: prod
+
+Mappings:
+  AzMap:
+    ap-northeast-2:
+      AzA: ap-northeast-2a
+      AzB: ap-northeast-2c
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: traffic-vpc
+        - Key: Environment
+          Value: !Ref Environment
+
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: traffic-igw
+
+  IGWAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [AzMap, ap-northeast-2, AzA]
+      CidrBlock: !Ref PublicSubnet1Cidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: traffic-public-a
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [AzMap, ap-northeast-2, AzB]
+      CidrBlock: !Ref PublicSubnet2Cidr
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: traffic-public-b
+        - Key: kubernetes.io/role/elb
+          Value: '1'
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [AzMap, ap-northeast-2, AzA]
+      CidrBlock: !Ref PrivateSubnet1Cidr
+      Tags:
+        - Key: Name
+          Value: traffic-private-a
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !FindInMap [AzMap, ap-northeast-2, AzB]
+      CidrBlock: !Ref PrivateSubnet2Cidr
+      Tags:
+        - Key: Name
+          Value: traffic-private-b
+        - Key: kubernetes.io/role/internal-elb
+          Value: '1'
+
+  PublicRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: traffic-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRT
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+    DependsOn: IGWAttach
+
+  PublicAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnet1
+
+  PublicAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRT
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateRTA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: traffic-private-rt-a
+
+  PrivateRTB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: traffic-private-rt-b
+
+  PrivateAssocA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRTA
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateAssocB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRTB
+      SubnetId: !Ref PrivateSubnet2
+
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: com.amazonaws.ap-northeast-2.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRTA
+        - !Ref PrivateRTB
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:*'
+            Resource: '*'
+
+  DynamoDBGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: com.amazonaws.ap-northeast-2.dynamodb
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRTA
+        - !Ref PrivateRTB
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 'dynamodb:*'
+            Resource: '*'
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: traffic:VpcId
+  PublicSubnetIds:
+    Description: Public subnet IDs
+    Value: !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+    Export:
+      Name: traffic:PublicSubnetIds
+  PrivateSubnetIds:
+    Description: Private subnet IDs
+    Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+    Export:
+      Name: traffic:PrivateSubnetIds

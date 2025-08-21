@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront Response Headers Policies for static(immutable) and html(short)
+
+Resources:
+  ResponseHeadersPolicyStaticImmutable:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${AWS::StackName}-rhp-static-immutable"
+        Comment: 'Static assets: long TTL with immutable'
+        CustomHeadersConfig:
+          Items:
+            - Header: Cache-Control
+              Value: public, max-age=604800, immutable
+              Override: true
+        SecurityHeadersConfig:
+          ContentTypeOptions: { Override: true }
+          FrameOptions: { FrameOption: SAMEORIGIN, Override: true }
+          ReferrerPolicy: { ReferrerPolicy: same-origin, Override: true }
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          XSSProtection: { ModeBlock: true, Protection: true, Override: true }
+        CorsConfig:
+          AccessControlAllowCredentials: false
+          AccessControlAllowHeaders:
+            Items: ['*']
+          AccessControlAllowMethods:
+            Items: [GET, HEAD, OPTIONS]
+          AccessControlAllowOrigins:
+            Items: ['*']
+          AccessControlMaxAgeSec: 600
+          OriginOverride: true
+
+  ResponseHeadersPolicyHtmlShort:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${AWS::StackName}-rhp-html-short"
+        Comment: 'HTML: short TTL, revalidate fast'
+        CustomHeadersConfig:
+          Items:
+            - Header: Cache-Control
+              Value: public, max-age=300
+              Override: true
+        SecurityHeadersConfig:
+          ContentTypeOptions: { Override: true }
+          FrameOptions: { FrameOption: SAMEORIGIN, Override: true }
+          ReferrerPolicy: { ReferrerPolicy: no-referrer-when-downgrade, Override: true }
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          XSSProtection: { ModeBlock: true, Protection: true, Override: true }
+        CorsConfig:
+          AccessControlAllowCredentials: false
+          AccessControlAllowHeaders:
+            Items: ['*']
+          AccessControlAllowMethods:
+            Items: [GET, HEAD, OPTIONS]
+          AccessControlAllowOrigins:
+            Items: ['*']
+          AccessControlMaxAgeSec: 600
+          OriginOverride: true
+
+Outputs:
+  ResponseHeadersPolicyStaticImmutableId:
+    Value: !Ref ResponseHeadersPolicyStaticImmutable
+    Export:
+      Name: rhp-static-immutable-id
+  ResponseHeadersPolicyHtmlShortId:
+    Value: !Ref ResponseHeadersPolicyHtmlShort
+    Export:
+      Name: rhp-html-short-id

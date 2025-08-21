@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 set -euo pipefail
 
 REGION="ap-northeast-2"
@@ -6,7 +6,6 @@ VPC_STACK="traffic-vpc"
 ALB_ASG_STACK="traffic-alb-asg"
 REDIS_STACK="traffic-redis"
 
-# 1) Fetch outputs/ids
 VPC_ID=$(aws cloudformation describe-stacks \
   --region "${REGION}" \
   --stack-name "${VPC_STACK}" \
@@ -29,20 +28,25 @@ echo "[INFO] VPC_ID=${VPC_ID}"
 echo "[INFO] PRIVATE_SUBNETS=${PRIVATE_SUBNETS}"
 echo "[INFO] APP_SG_ID=${APP_SG_ID}"
 
-# 2) Deploy Redis (Multi-AZ HA, minimal cost)
+if [[ -z "${VPC_ID}" || -z "${PRIVATE_SUBNETS}" || -z "${APP_SG_ID}" || "${APP_SG_ID}" == "None" ]]; then
+  echo "[ERROR] Required IDs missing. Check previous stacks."
+  exit 1
+fi
+
 aws cloudformation deploy \
   --region "${REGION}" \
   --template-file cache-redis.yaml \
   --stack-name "${REDIS_STACK}" \
+  --no-fail-on-empty-changeset \
   --parameter-overrides \
     VpcId="${VPC_ID}" \
     PrivateSubnets="${PRIVATE_SUBNETS}" \
     AppSecurityGroupId="${APP_SG_ID}" \
     NodeType="cache.t4g.micro" \
     EngineVersion="7.1" \
-    NumReplicas=1
+    EnableHA="false"
 
-# 3) Show outputs
+
 aws cloudformation describe-stacks \
   --region "${REGION}" \
   --stack-name "${REDIS_STACK}" \

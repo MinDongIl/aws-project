@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudWatch monitoring: ALB 5xx/latency alarms, ASG in-service alarm, and a dashboard'
+
+Parameters:
+  AutoScalingGroupName:
+    Type: String
+  LoadBalancerFullName:
+    Type: String
+    Description: 'CloudWatch dimension value, e.g., app/traffic-alb-asg-alb/06598219fcaf0e81'
+  TargetGroupFullName:
+    Type: String
+    Description: 'CloudWatch dimension value, e.g., targetgroup/xyz/abcdefgh1234567'
+  DashboardName:
+    Type: String
+    Default: 'traffic-dashboard'
+
+Resources:
+  Alb5xxHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AutoScalingGroupName}-alb-5xx-high'
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+
+  AlbTargetLatencyP95High:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AutoScalingGroupName}-alb-target-latency-p95-high'
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      ExtendedStatistic: p95
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 0.8
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Ref TargetGroupFullName
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+
+  AsgInServiceLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AutoScalingGroupName}-inservice-low'
+      Namespace: AWS/AutoScaling
+      MetricName: GroupInServiceInstances
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Ref DashboardName
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${LoadBalancerFullName}" ],
+                  [ ".", "HTTPCode_ELB_5XX_Count", ".", "." ],
+                  [ ".", "HTTPCode_ELB_4XX_Count", ".", "." ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "ALB Requests & 4xx/5xx",
+                "stat": "Sum",
+                "period": 60,
+                "yAxis": { "left": { "label": "count" } }
+              }
+            },
+            {
+              "type": "metric",
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApplicationELB", "TargetResponseTime", "TargetGroup", "${TargetGroupFullName}", "LoadBalancer", "${LoadBalancerFullName}", { "stat": "p95" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "ALB TargetResponseTime p95",
+                "period": 60
+              }
+            },
+            {
+              "type": "metric",
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "${AutoScalingGroupName}" ],
+                  [ ".", "GroupDesiredCapacity", ".", "." ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "ASG InService vs Desired",
+                "stat": "Average",
+                "period": 60
+              }
+            }
+          ]
+        }
+
+Outputs:
+  Alb5xxHighName:
+    Value: !Ref Alb5xxHigh
+    Description: 'ALB 5xx alarm name'
+  AlbLatencyP95HighName:
+    Value: !Ref AlbTargetLatencyP95High
+    Description: 'ALB p95 latency alarm name'
+  AsgInServiceLowName:
+    Value: !Ref AsgInServiceLow
+    Description: 'ASG in-service low alarm name'
+  DashboardOut:
+    Value: !Ref Dashboard
+    Description: 'CloudWatch dashboard name'

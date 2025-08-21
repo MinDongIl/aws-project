@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create a minimal AWS WAFv2 WebACL (CLOUDFRONT scope). Association is done in CloudFront stack.
+
+Parameters:
+  WebAclName:
+    Type: String
+    Default: traffic-waf
+  RateLimit:
+    Type: Number
+    Default: 2000
+    Description: Requests per 5 minutes per IP.
+
+Resources:
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Ref WebAclName
+      Scope: CLOUDFRONT
+      DefaultAction: { Allow: {} }
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "${WebAclName}-metrics"
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction: { None: {} }
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "${WebAclName}-common"
+            SampledRequestsEnabled: true
+        - Name: RateLimitPerIP
+          Priority: 10
+          Statement:
+            RateBasedStatement:
+              Limit: !Ref RateLimit
+              AggregateKeyType: IP
+          Action: { Block: {} }
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub "${WebAclName}-ratelimit"
+            SampledRequestsEnabled: true
+
+Outputs:
+  WebACLArn:
+    Value: !GetAtt WebACL.Arn
+    Description: ARN of the created WebACL

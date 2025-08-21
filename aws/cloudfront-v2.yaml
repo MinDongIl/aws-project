@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distribution with path-based behaviors in front of existing ALB.
+
+Parameters:
+  OriginDomainName:
+    Type: String
+    Description: ALB DNS name (e.g., my-alb-123.ap-northeast-2.elb.amazonaws.com)
+  AlternateDomainName:
+    Type: String
+    Default: ''
+    Description: Optional custom domain (e.g., cdn.example.com). Leave empty to use default CloudFront domain.
+  AcmCertificateArn:
+    Type: String
+    Default: ''
+    Description: Optional ACM cert ARN in us-east-1 for the custom domain.
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Optional Route53 public hosted zone ID to create Alias records. Leave empty to skip Route53.
+  PriceClass:
+    Type: String
+    Default: PriceClass_All
+    AllowedValues:
+      - PriceClass_All
+      - PriceClass_200
+      - PriceClass_100
+    Description: CloudFront price class.
+  OriginProtocolPolicy:
+    Type: String
+    Default: http-only
+    AllowedValues:
+      - http-only
+      - https-only
+      - match-viewer
+
+  ApiPathPattern:
+    Type: String
+    Default: /api/*
+    Description: Path pattern to disable caching (API pass-through).
+  StaticPathPattern:
+    Type: String
+    Default: /static/*
+    Description: Path pattern to strongly cache (static assets).
+
+Conditions:
+  UseCustomDomain: !And
+    - !Not [!Equals [!Ref AlternateDomainName, '']]
+    - !Not [!Equals [!Ref AcmCertificateArn, '']]
+  CreateR53: !And
+    - !Condition UseCustomDomain
+    - !Not [!Equals [!Ref HostedZoneId, '']]
+
+Resources:
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        Comment: Distribution with path-based behaviors
+        PriceClass: !Ref PriceClass
+        Origins:
+          - Id: app-alb-origin
+            DomainName: !Ref OriginDomainName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: !Ref OriginProtocolPolicy
+              OriginSSLProtocols: [TLSv1.2]
+
+        DefaultCacheBehavior:
+          TargetOriginId: app-alb-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # Managed-CachingOptimized
+        CacheBehaviors:
+          - PathPattern: !Ref ApiPathPattern
+            TargetOriginId: app-alb-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # Managed-AllViewerExceptHostHeader
+          - PathPattern: !Ref StaticPathPattern
+            TargetOriginId: app-alb-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+
+        Aliases: !If
+          - UseCustomDomain
+          - [!Ref AlternateDomainName]
+          - []
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - AcmCertificateArn: !Ref AcmCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+
+  RecordA:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateR53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AlternateDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  RecordAAAA:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateR53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AlternateDomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+    Description: CloudFront Distribution ID
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+    Description: CloudFront Domain Name

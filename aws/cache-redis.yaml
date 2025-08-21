@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ElastiCache for Redis (HA optional) with SG restricted to App SG'
+Description: 'ElastiCache for Redis (Optional HA) - Allowed only from App SG'
 
 Parameters:
   VpcId:
@@ -16,11 +16,12 @@ Parameters:
     Default: 7.1
   EnableHA:
     Type: String
-    Default: 'false'        # CHANGED: default to single node (cost saver)
+    Default: 'false'
     AllowedValues: ['true','false']
 
 Conditions:
   UseHA: !Equals [!Ref EnableHA, 'true']
+  UseNonHA: !Equals [!Ref EnableHA, 'false']
 
 Resources:
   RedisSG:
@@ -29,8 +30,11 @@ Resources:
       GroupDescription: 'Allow Redis 6379 from App SG only'
       VpcId: !Ref VpcId
       SecurityGroupIngress:
-        - { IpProtocol: tcp, FromPort: 6379, ToPort: 6379, SourceSecurityGroupId: !Ref AppSecurityGroupId }
-      Tags: [ { Key: Name, Value: redis-sg } ]
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref AppSecurityGroupId
+      Tags: [{ Key: Name, Value: redis-sg }]
 
   RedisSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
@@ -39,7 +43,6 @@ Resources:
       SubnetIds: !Ref PrivateSubnets
       CacheSubnetGroupName: !Sub 'redis-subnet-${AWS::StackName}'
 
-  # HA: ReplicationGroup
   RedisReplicationGroup:
     Condition: UseHA
     Type: AWS::ElastiCache::ReplicationGroup
@@ -58,9 +61,8 @@ Resources:
       TransitEncryptionEnabled: true
       AutoMinorVersionUpgrade: true
 
-  # Non-HA: Single-node CacheCluster
   RedisCluster:
-    Condition: !Not [!Ref UseHA]
+    Condition: UseNonHA
     Type: AWS::ElastiCache::CacheCluster
     Properties:
       Engine: redis
@@ -77,7 +79,7 @@ Outputs:
     Value: !If
       - UseHA
       - !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
-      - !GetAtt RedisCluster.ConfigurationEndpoint.Address
+      - !GetAtt RedisCluster.RedisEndpoint.Address
     Export: { Name: traffic:RedisPrimary }
 
   ReaderEndpoint:
@@ -85,7 +87,7 @@ Outputs:
     Value: !If
       - UseHA
       - !GetAtt RedisReplicationGroup.ReaderEndPoint.Address
-      - !GetAtt RedisCluster.ConfigurationEndpoint.Address
+      - !GetAtt RedisCluster.RedisEndpoint.Address
     Export: { Name: traffic:RedisReader }
 
   RedisSecurityGroupId:

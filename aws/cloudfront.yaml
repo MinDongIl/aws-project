@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distribution in front of existing ALB with optional custom domain and Route53 alias.
+
+Parameters:
+  OriginDomainName:
+    Type: String
+    Description: ALB DNS name (e.g., my-alb-123.ap-northeast-2.elb.amazonaws.com)
+  AlternateDomainName:
+    Type: String
+    Default: ''
+    Description: Optional custom domain (e.g., cdn.example.com). Leave empty to use default CloudFront domain.
+  AcmCertificateArn:
+    Type: String
+    Default: ''
+    Description: Optional ACM cert ARN in us-east-1 for the custom domain.
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Optional Route53 public hosted zone ID to create Alias records. Leave empty to skip Route53.
+  PriceClass:
+    Type: String
+    Default: PriceClass_All
+    AllowedValues:
+      - PriceClass_All
+      - PriceClass_200
+      - PriceClass_100
+    Description: CloudFront price class. Use lower classes to reduce cost with possible latency tradeoffs.
+  OriginProtocolPolicy:
+    Type: String
+    Default: http-only
+    AllowedValues:
+      - http-only
+      - https-only
+      - match-viewer
+    Description: How CloudFront connects to the ALB origin.
+
+Mappings: {}
+
+Conditions:
+  UseCustomDomain: !And
+    - !Not [!Equals [!Ref AlternateDomainName, '']]
+    - !Not [!Equals [!Ref AcmCertificateArn, '']]
+  CreateR53: !And
+    - !Condition UseCustomDomain
+    - !Not [!Equals [!Ref HostedZoneId, '']]
+
+Resources:
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        Comment: Distribution fronting existing ALB
+        PriceClass: !Ref PriceClass
+        Origins:
+          - Id: app-alb-origin
+            DomainName: !Ref OriginDomainName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: !Ref OriginProtocolPolicy
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: app-alb-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        Aliases: !If
+          - UseCustomDomain
+          - [!Ref AlternateDomainName]
+          - []
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - AcmCertificateArn: !Ref AcmCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+
+  RecordA:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateR53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AlternateDomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  RecordAAAA:
+    Type: AWS::Route53::RecordSet
+    Condition: CreateR53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AlternateDomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+    Description: CloudFront Distribution ID
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+    Description: CloudFront Domain Name

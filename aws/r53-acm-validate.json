@@ -1,0 +1,14 @@
+{
+  "Comment": "ACM DNS validation for traffic.nextcloudlab.com",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_2a8e725879fe46219a50918f566982f7.traffic.nextcloudlab.com.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [{ "Value": "_c27a4b59a4b2f3bdc6b8209700d3c6ab.xlfgrmvvlj.acm-validations.aws." }]
+      }
+    }
+  ]
+}

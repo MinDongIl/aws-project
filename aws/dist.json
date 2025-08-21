@@ -1,0 +1,210 @@
+{
+  "CallerReference": "6126db2f-e652-0fd8-095b-0f554a5667a2",
+  "Aliases": {
+    "Quantity": 1,
+    "Items": [
+      "traffic.nextcloudlab.com"
+    ]
+  },
+  "DefaultRootObject": "index.html",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "app-alb-origin",
+        "DomainName": "traffic-alb-asg-alb-934945083.ap-northeast-2.elb.amazonaws.com",
+        "OriginPath": "",
+        "CustomHeaders": {
+          "Quantity": 0
+        },
+        "CustomOriginConfig": {
+          "HTTPPort": 80,
+          "HTTPSPort": 443,
+          "OriginProtocolPolicy": "http-only",
+          "OriginSslProtocols": {
+            "Quantity": 1,
+            "Items": [
+              "TLSv1.2"
+            ]
+          },
+          "OriginReadTimeout": 30,
+          "OriginKeepaliveTimeout": 5
+        },
+        "ConnectionAttempts": 3,
+        "ConnectionTimeout": 10,
+        "OriginShield": {
+          "Enabled": false
+        },
+        "OriginAccessControlId": ""
+      }
+    ]
+  },
+  "OriginGroups": {
+    "Quantity": 0
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "app-alb-origin",
+    "TrustedSigners": {
+      "Enabled": false,
+      "Quantity": 0
+    },
+    "TrustedKeyGroups": {
+      "Enabled": false,
+      "Quantity": 0
+    },
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": [
+        "HEAD",
+        "GET"
+      ],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": [
+          "HEAD",
+          "GET"
+        ]
+      }
+    },
+    "SmoothStreaming": false,
+    "Compress": true,
+    "LambdaFunctionAssociations": {
+      "Quantity": 0
+    },
+    "FunctionAssociations": {
+      "Quantity": 0
+    },
+    "FieldLevelEncryptionId": "",
+    "CachePolicyId": "53d578d6-48a1-4d09-b6cf-02033a5f1082",
+    "OriginRequestPolicyId": "7ef9da78-40fa-4d1b-a673-8f48e9b85b09",
+    "GrpcConfig": {
+      "Enabled": false
+    },
+    "ResponseHeadersPolicyId": "e1ad0038-6be9-48d2-8156-6a824a48fd79"
+  },
+  "CacheBehaviors": {
+    "Quantity": 2,
+    "Items": [
+      {
+        "PathPattern": "/api/*",
+        "TargetOriginId": "app-alb-origin",
+        "TrustedSigners": {
+          "Enabled": false,
+          "Quantity": 0
+        },
+        "TrustedKeyGroups": {
+          "Enabled": false,
+          "Quantity": 0
+        },
+        "ViewerProtocolPolicy": "redirect-to-https",
+        "AllowedMethods": {
+          "Quantity": 7,
+          "Items": [
+            "HEAD",
+            "DELETE",
+            "POST",
+            "GET",
+            "OPTIONS",
+            "PUT",
+            "PATCH"
+          ],
+          "CachedMethods": {
+            "Quantity": 2,
+            "Items": [
+              "HEAD",
+              "GET"
+            ]
+          }
+        },
+        "SmoothStreaming": false,
+        "Compress": true,
+        "LambdaFunctionAssociations": {
+          "Quantity": 0
+        },
+        "FunctionAssociations": {
+          "Quantity": 0
+        },
+        "FieldLevelEncryptionId": "",
+        "CachePolicyId": "e23f21ac-ab19-4b52-88f6-f87c6fe294c7",
+        "OriginRequestPolicyId": "9c0b942a-0351-4a69-9681-d335e611c1b7",
+        "GrpcConfig": {
+          "Enabled": false
+        }
+      },
+      {
+        "PathPattern": "/static/*",
+        "TargetOriginId": "app-alb-origin",
+        "TrustedSigners": {
+          "Enabled": false,
+          "Quantity": 0
+        },
+        "TrustedKeyGroups": {
+          "Enabled": false,
+          "Quantity": 0
+        },
+        "ViewerProtocolPolicy": "redirect-to-https",
+        "AllowedMethods": {
+          "Quantity": 2,
+          "Items": [
+            "HEAD",
+            "GET"
+          ],
+          "CachedMethods": {
+            "Quantity": 2,
+            "Items": [
+              "HEAD",
+              "GET"
+            ]
+          }
+        },
+        "SmoothStreaming": false,
+        "Compress": true,
+        "LambdaFunctionAssociations": {
+          "Quantity": 0
+        },
+        "FunctionAssociations": {
+          "Quantity": 0
+        },
+        "FieldLevelEncryptionId": "",
+        "CachePolicyId": "0ef7e50f-885a-4fdc-ae10-2444a91ff88a",
+        "OriginRequestPolicyId": "7ef9da78-40fa-4d1b-a673-8f48e9b85b09",
+        "GrpcConfig": {
+          "Enabled": false
+        },
+        "ResponseHeadersPolicyId": "896a534e-dde3-4b80-a342-15721dc462d5"
+      }
+    ]
+  },
+  "CustomErrorResponses": {
+    "Quantity": 0
+  },
+  "Comment": "Distribution with path-based behaviors and optional WAF",
+  "Logging": {
+    "Enabled": false,
+    "IncludeCookies": false,
+    "Bucket": "",
+    "Prefix": ""
+  },
+  "PriceClass": "PriceClass_All",
+  "Enabled": true,
+  "ViewerCertificate": {
+    "CloudFrontDefaultCertificate": false,
+    "ACMCertificateArn": "arn:aws:acm:us-east-1:077672914621:certificate/4e7a4517-c6f8-48c2-aad7-6942c88910cd",
+    "SSLSupportMethod": "sni-only",
+    "MinimumProtocolVersion": "TLSv1.2_2021",
+    "Certificate": "arn:aws:acm:us-east-1:077672914621:certificate/4e7a4517-c6f8-48c2-aad7-6942c88910cd",
+    "CertificateSource": "acm"
+  },
+  "Restrictions": {
+    "GeoRestriction": {
+      "RestrictionType": "none",
+      "Quantity": 0
+    }
+  },
+  "WebACLId": "arn:aws:wafv2:us-east-1:077672914621:global/webacl/traffic-waf/8e0f2009-bb33-463f-9209-67c5bf951e43",
+  "HttpVersion": "http2and3",
+  "IsIPV6Enabled": true,
+  "ContinuousDeploymentPolicyId": "",
+  "Staging": false
+}

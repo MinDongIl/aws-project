@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront cache/origin-request policies for static, html, and api
+
+Resources:
+  CachePolicyStaticLongTTL:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: cp-static-long-ttl
+        DefaultTTL: 604800
+        MaxTTL: 31536000
+        MinTTL: 60
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          CookiesConfig:
+            CookieBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  CachePolicyHtmlShortTTL:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: cp-html-short-ttl
+        DefaultTTL: 300
+        MaxTTL: 3600
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          CookiesConfig:
+            CookieBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  CachePolicyApiNoCache:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: cp-api-no-cache
+        DefaultTTL: 0
+        MaxTTL: 0
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
+          HeadersConfig:
+            HeaderBehavior: none
+          CookiesConfig:
+            CookieBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  OriginRequestPolicyStaticMinimal:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: orp-static-minimal
+        CookiesConfig:
+          CookieBehavior: none
+        HeadersConfig:
+          HeaderBehavior: none
+        QueryStringsConfig:
+          QueryStringBehavior: none
+
+  OriginRequestPolicyApiAll:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: orp-api-all
+        CookiesConfig:
+          CookieBehavior: all
+        HeadersConfig:
+          HeaderBehavior: allViewer
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+Outputs:
+  CachePolicyStaticLongTTLId:
+    Value: !Ref CachePolicyStaticLongTTL
+    Export:
+      Name: cp-static-long-ttl-id
+  CachePolicyHtmlShortTTLId:
+    Value: !Ref CachePolicyHtmlShortTTL
+    Export:
+      Name: cp-html-short-ttl-id
+  CachePolicyApiNoCacheId:
+    Value: !Ref CachePolicyApiNoCache
+    Export:
+      Name: cp-api-no-cache-id
+  OriginRequestPolicyStaticMinimalId:
+    Value: !Ref OriginRequestPolicyStaticMinimal
+    Export:
+      Name: orp-static-minimal-id
+  OriginRequestPolicyApiAllId:
+    Value: !Ref OriginRequestPolicyApiAll
+    Export:
+      Name: orp-api-all-id
