@@ -36,7 +36,7 @@
 - 세션/단기 데이터 캐시로 **DB 의존도·지연 감소**.
 - Redis Subnet Group·SG 구성으로 프라이빗 통신.
 
-### 06. (설계 반영) DynamoDB Global Table
+### 06. (미구현 / 설계 완료, 차후 연결) DynamoDB Global Table
 - 글로벌 데이터 동기화 구조 설계(세션 메타/랭킹 등).
 - 다지역 확장 시 **읽기 지연 최소화**와 **내결함성**을 위한 선택지로 포함.
 
@@ -66,7 +66,7 @@
 ## 3) 전체 아키텍처 개요
 
 ### 평시 (Normal)
-- 사용자 → **Route 53** → **CloudFront** → **ALB** → **ASG(EC2)** → **Redis** → (옵션) **DynamoDB Global Table**
+- 사용자 → **Route 53** → **CloudFront** → **ALB** → **ASG(EC2)** → **Redis** → (옵션/미구현) **DynamoDB Global Table**
 - **CloudWatch** 지표 수집, **SNS**로 알람 전파
 - **스케줄 액션**으로 야간 최소 용량 유지
 
