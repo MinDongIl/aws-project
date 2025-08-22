@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch dashboard for ALB/ASG/CloudFront key metrics (traffic management)
+
+Parameters:
+  DashboardName:
+    Type: String
+    Default: traffic-ops-dashboard
+  RegionForALB:
+    Type: String
+    Default: ap-northeast-2
+  AlbLabel:
+    Type: String
+    Description: "ALB label (app/<lb-name>/<lb-id>)"
+  TgLabel:
+    Type: String
+    Description: "TargetGroup label (targetgroup/<tg-name>/<tg-id>)"
+  AsgName:
+    Type: String
+    Description: "Auto Scaling Group name"
+  CloudFrontDistributionId:
+    Type: String
+    Description: "CloudFront Distribution ID (e.g., E3AG25VNNZ6FHO)"
+
+Resources:
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Ref DashboardName
+      DashboardBody: !Sub |
+        {
+          "start": "-6h",
+          "periodOverride": "inherit",
+          "widgets": [
+            {
+              "type": "text",
+              "x": 0, "y": 0, "width": 24, "height": 2,
+              "properties": {
+                "markdown": "# Traffic Ops Overview\nALB/ASG/CloudFront Core monitoring dashboard"
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 0, "y": 2, "width": 12, "height": 6,
+              "properties": {
+                "title": "ALB - RequestCountPerTarget (per 60s)",
+                "region": "${RegionForALB}",
+                "stat": "Sum",
+                "period": 60,
+                "sparkline": true,
+                "metrics": [
+                  [ "AWS/ApplicationELB", "RequestCountPerTarget", "LoadBalancer", "${AlbLabel}", "TargetGroup", "${TgLabel}" ]
+                ],
+                "yAxis": { "left": { "label": "req/target/min" } }
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 12, "y": 2, "width": 12, "height": 6,
+              "properties": {
+                "title": "ALB - TargetResponseTime (avg, sec)",
+                "region": "${RegionForALB}",
+                "stat": "Average",
+                "period": 60,
+                "sparkline": true,
+                "metrics": [
+                  [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "${AlbLabel}", "TargetGroup", "${TgLabel}" ]
+                ],
+                "yAxis": { "left": { "label": "seconds" } }
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 0, "y": 8, "width": 12, "height": 6,
+              "properties": {
+                "title": "ALB - Target 5xx / ELB 5xx (per 5m)",
+                "region": "${RegionForALB}",
+                "stat": "Sum",
+                "period": 300,
+                "legend": { "position": "bottom" },
+                "metrics": [
+                  [ "AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "${AlbLabel}", "TargetGroup", "${TgLabel}" ],
+                  [ ".", "HTTPCode_ELB_5XX_Count", ".", ".", ".", "." ]
+                ]
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 12, "y": 8, "width": 12, "height": 6,
+              "properties": {
+                "title": "ASG - Desired vs InService",
+                "region": "${RegionForALB}",
+                "stat": "Average",
+                "period": 60,
+                "legend": { "position": "bottom" },
+                "metrics": [
+                  [ "AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", "${AsgName}" ],
+                  [ ".", "GroupInServiceInstances", ".", "." ]
+                ],
+                "yAxis": { "left": { "label": "instances" } }
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 0, "y": 14, "width": 12, "height": 6,
+              "properties": {
+                "title": "CloudFront - Requests (sum)",
+                "region": "us-east-1",
+                "stat": "Sum",
+                "period": 300,
+                "metrics": [
+                  [ "AWS/CloudFront", "Requests", "DistributionId", "${CloudFrontDistributionId}", "Region", "Global" ]
+                ],
+                "yAxis": { "left": { "label": "requests" } }
+              }
+            },
+
+            {
+              "type": "metric",
+              "x": 12, "y": 14, "width": 12, "height": 6,
+              "properties": {
+                "title": "CloudFront - 4xx/5xx ErrorRate (%)",
+                "region": "us-east-1",
+                "stat": "Average",
+                "period": 300,
+                "legend": { "position": "bottom" },
+                "metrics": [
+                  [ "AWS/CloudFront", "4xxErrorRate", "DistributionId", "${CloudFrontDistributionId}", "Region", "Global" ],
+                  [ ".", "5xxErrorRate", ".", ".", ".", "." ]
+                ],
+                "yAxis": { "left": { "label": "%", "min": 0, "max": 100 } }
+              }
+            }
+          ]
+        }
+
+Outputs:
+  DashboardNameOut:
+    Value: !Ref DashboardName
+    Description: Created dashboard name

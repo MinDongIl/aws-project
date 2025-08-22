@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch alarms for ASG, ALB, CloudFront with SNS notifications
+
+Parameters:
+  AlarmEmail:
+    Type: String
+    Description: Email address for receiving alarm notifications
+  RegionForALB:
+    Type: String
+    Default: ap-northeast-2
+  AlbLabel:
+    Type: String
+    Description: "app/<lb-name>/<lb-id>"
+  TgLabel:
+    Type: String
+    Description: "targetgroup/<tg-name>/<tg-id>"
+  AsgName:
+    Type: String
+    Description: "Auto Scaling Group name"
+  CloudFrontDistributionId:
+    Type: String
+    Description: "CloudFront Distribution ID"
+
+Resources:
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: traffic-ops-alarm-topic
+
+  AlarmTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref AlarmEmail
+      Protocol: email
+      TopicArn: !Ref AlarmTopic
+
+  # --- ASG CPU Alarm ---
+  AsgCpuHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "ASG average CPU >= 80% for 5 minutes"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AsgName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions: [!Ref AlarmTopic]
+
+  # --- ALB Latency Alarm ---
+  AlbLatencyHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "ALB TargetResponseTime >= 1.0s for 5 minutes"
+      Namespace: AWS/ApplicationELB
+      MetricName: TargetResponseTime
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref AlbLabel
+        - Name: TargetGroup
+          Value: !Ref TgLabel
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions: [!Ref AlarmTopic]
+
+  # --- ALB 5XX Alarm ---
+  Alb5xxHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "ALB Target 5XX >= 10 per 5m"
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref AlbLabel
+        - Name: TargetGroup
+          Value: !Ref TgLabel
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions: [!Ref AlarmTopic]
+
+  # --- CloudFront 5XX ErrorRate Alarm ---
+  Cf5xxHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: "CloudFront 5xxErrorRate >= 1% for 5m"
+      Namespace: AWS/CloudFront
+      MetricName: 5xxErrorRate
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref CloudFrontDistributionId
+        - Name: Region
+          Value: Global
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions: [!Ref AlarmTopic]
+
+Outputs:
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic
+    Description: SNS Topic ARN for notifications

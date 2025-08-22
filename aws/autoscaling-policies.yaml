@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Attach target-tracking scaling policies and optional schedules to an existing ASG
+
+Parameters:
+  AutoScalingGroupName:
+    Type: String
+    Description: Existing ASG name
+
+  AlbResourceLabel:
+    Type: String
+    Description: "app/<lb-name>/<lb-id>/targetgroup/<tg-name>/<tg-id>"
+
+  TargetRequestsPerTarget:
+    Type: Number
+    Default: 80
+
+  EnableCpuPolicy:
+    Type: String
+    AllowedValues: ["true","false"]
+    Default: "false"
+
+  CpuUtilizationTarget:
+    Type: Number
+    Default: 50
+
+  EstimatedInstanceWarmup:
+    Type: Number
+    Default: 120
+
+  EnableNightlyScaleDown:
+    Type: String
+    AllowedValues: ["true","false"]
+    Default: "true"
+
+  NightlyMinCapacity:
+    Type: Number
+    Default: 1
+
+  DaytimeMinCapacity:
+    Type: Number
+    Default: 1
+
+  NightlyCronUTC:
+    Type: String
+    Default: "0 17 * * *"   # 02:00 KST
+
+  DaytimeCronUTC:
+    Type: String
+    Default: "0 0 * * *"    # 09:00 KST
+
+Conditions:
+  WithCpu: !Equals [!Ref EnableCpuPolicy, "true"]
+  WithNightly: !Equals [!Ref EnableNightlyScaleDown, "true"]
+
+Resources:
+  ScalingPolicyRequestCountPerTarget:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      PolicyName: !Sub "${AWS::StackName}-tt-req"
+      PolicyType: TargetTrackingScaling
+      EstimatedInstanceWarmup: !Ref EstimatedInstanceWarmup
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Ref AlbResourceLabel
+        TargetValue: !Ref TargetRequestsPerTarget
+        DisableScaleIn: false
+
+  ScalingPolicyCpuTarget:
+    Condition: WithCpu
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      PolicyName: !Sub "${AWS::StackName}-tt-cpu"
+      PolicyType: TargetTrackingScaling
+      EstimatedInstanceWarmup: !Ref EstimatedInstanceWarmup
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: !Ref CpuUtilizationTarget
+        DisableScaleIn: false
+
+  NightlyScaleDown:
+    Condition: WithNightly
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      ScheduledActionName: !Sub "${AWS::StackName}-nightly-down"
+      MinSize: !Ref NightlyMinCapacity
+      DesiredCapacity: !Ref NightlyMinCapacity
+      Recurrence: !Ref NightlyCronUTC
+
+  DaytimeScaleUp:
+    Condition: WithNightly
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroupName
+      ScheduledActionName: !Sub "${AWS::StackName}-daytime-up"
+      MinSize: !Ref DaytimeMinCapacity
+      DesiredCapacity: !Ref DaytimeMinCapacity
+      Recurrence: !Ref DaytimeCronUTC
+
+Outputs:
+  PolicyRequestCountPerTargetName:
+    Value: !Ref ScalingPolicyRequestCountPerTarget
+  PolicyCpuTargetName:
+    Condition: WithCpu
+    Value: !Ref ScalingPolicyCpuTarget
