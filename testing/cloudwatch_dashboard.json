@@ -1,0 +1,102 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "ALB p95 응답시간 (traffic-alb-asg-alb)",
+        "view": "timeSeries",
+        "region": "ap-northeast-2",
+        "yAxis": { "left": { "label": "sec" } },
+        "metrics": [
+          [
+            { "expression": "SEARCH('{AWS/ApplicationELB,LoadBalancer} MetricName=\"TargetResponseTime\" AND LoadBalancer=\"*traffic-alb-asg-alb*\"', 'p95', 300)", "id": "e1", "label": "TargetResponseTime p95" }
+          ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 0, "width": 12, "height": 6,
+      "properties": {
+        "title": "ALB 요청수/5xx (traffic-alb-asg-alb)",
+        "view": "timeSeries",
+        "region": "ap-northeast-2",
+        "yAxis": { "left": { "label": "req" }, "right": { "label": "5xx" } },
+        "metrics": [
+          [
+            { "expression": "SEARCH('{AWS/ApplicationELB,LoadBalancer} MetricName=\"RequestCount\" AND LoadBalancer=\"*traffic-alb-asg-alb*\"', 'Sum', 300)", "id": "e2", "label": "RequestCount" }
+          ],
+          [
+            { "expression": "SEARCH('{AWS/ApplicationELB,LoadBalancer} MetricName=\"HTTPCode_Target_5XX_Count\" AND LoadBalancer=\"*traffic-alb-asg-alb*\"', 'Sum', 300)", "id": "e3", "label": "Target 5XX", "yAxis": "right" }
+          ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "title": "ASG 서비스 중 인스턴스 수",
+        "view": "timeSeries",
+        "region": "ap-northeast-2",
+        "yAxis": { "left": { "label": "InService" }, "right": { "label": "Desired" } },
+        "metrics": [
+          [ "AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", "traffic-alb-asg-ASG-W9KjceZQEG9R", { "stat": "Maximum" } ],
+          [ ".", "GroupDesiredCapacity", ".", ".", { "stat": "Maximum", "yAxis": "right" } ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 6, "width": 12, "height": 6,
+      "properties": {
+        "title": "EC2 CPU (ASG 기준)",
+        "view": "timeSeries",
+        "region": "ap-northeast-2",
+        "metrics": [
+          [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "traffic-alb-asg-ASG-W9KjceZQEG9R", { "stat": "Average" } ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 12, "width": 12, "height": 6,
+      "properties": {
+        "title": "CloudFront 캐시 히트율 (E3AG25VNNZ6FHO)",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/CloudFront", "CacheHitRate", "DistributionId", "E3AG25VNNZ6FHO", "Region", "Global", { "stat": "Average" } ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 12, "width": 12, "height": 6,
+      "properties": {
+        "title": "CloudFront 요청수/5xx (E3AG25VNNZ6FHO)",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "yAxis": { "left": { "label": "req" }, "right": { "label": "5xx%" } },
+        "metrics": [
+          [ "AWS/CloudFront", "Requests", "DistributionId", "E3AG25VNNZ6FHO", "Region", "Global", { "stat": "Sum" } ],
+          [ ".", "5xxErrorRate", ".", ".", ".", "Global", { "stat": "Average", "yAxis": "right" } ]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 18, "width": 12, "height": 6,
+      "properties": {
+        "title": "ElastiCache Redis CPU/Connections (tra-re-1m22fadjzh2pk)",
+        "view": "timeSeries",
+        "region": "ap-northeast-2",
+        "metrics": [
+          [ "AWS/ElastiCache", "CPUUtilization", "CacheClusterId", "tra-re-1m22fadjzh2pk", { "stat": "Average" } ],
+          [ ".", "CurrConnections", ".", ".", { "stat": "Average", "yAxis": "right" } ]
+        ]
+      }
+    }
+  ]
+}
