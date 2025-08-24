@@ -20,7 +20,7 @@ app.use("/static", express.static(path.join(__dirname, "../public/static")));
 
 registerEventRoute(app);
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = parseInt(process.env.PORT || "80", 10);
 app.listen(PORT, () => {
   console.log(`server listening on :${PORT}`);
 });
