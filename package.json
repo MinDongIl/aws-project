@@ -1,0 +1,13 @@
+{
+  "name": "ddb-key-design",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "sample": "node testing/ddb_sample_ops.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.645.0",
+    "@aws-sdk/lib-dynamodb": "^3.645.0",
+    "express": "^5.1.0"
+  }
+}

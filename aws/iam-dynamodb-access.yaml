@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Attach least-privilege DynamoDB access to an existing EC2 role
+
+Parameters:
+  RoleName:
+    Type: String
+    Description: Existing IAM role name used by your EC2 instance profile (ASG/LaunchTemplate)
+  TableArn:
+    Type: String
+    Description: DynamoDB table ARN for the Global Table (indexes included via /index/*)
+
+Resources:
+  AppDynamoDBPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${RoleName}-dynamodb-inline"
+      Roles:
+        - !Ref RoleName
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # ---- DynamoDB table read/write (table + GSI) ----
+          - Sid: TableReadWrite
+            Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+              - dynamodb:DescribeTable
+              - dynamodb:DescribeTimeToLive
+            Resource:
+              - !Ref TableArn
+              - !Sub "${TableArn}/index/*"
+
+          - Sid: StreamsRead
+            Effect: Allow
+            Action:
+              - dynamodbstreams:DescribeStream
+              - dynamodbstreams:GetRecords
+              - dynamodbstreams:GetShardIterator
+              - dynamodbstreams:ListStreams
+            Resource: "*"
+
+Outputs:
+  PolicyName:
+    Description: Inline policy name attached to the role
+    Value: !Ref AppDynamoDBPolicy

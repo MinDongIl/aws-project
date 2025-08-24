@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create EC2 IAM Role + Instance Profile for application to access DynamoDB
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: traffic-ec2-role
+
+Resources:
+  AppEC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Ref RoleName
+      Roles:
+        - !Ref AppEC2Role
+
+Outputs:
+  RoleName:
+    Value: !Ref AppEC2Role
+  InstanceProfileName:
+    Value: !Ref AppInstanceProfile
