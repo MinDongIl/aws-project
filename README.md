@@ -8,7 +8,7 @@
 - **트래픽 관리 인프라 구성**: VPC(멀티 AZ), 보안 그룹, ALB, Auto Scaling Group(ASG), ElastiCache(Redis), CloudFront, Route 53, (옵션) DynamoDB Global Table.
 - **자동 확장/축소**: Target Tracking(요청/타겟), Step Scaling(CPU) 기반 확장. 스케줄 액션(야간/주간)으로 비용 최적화.
 - **모니터링/알림**: CloudWatch 대시보드·지표·알람, SNS 알림 채널.
-- **부하 테스트 대비**: JMeter/Locust로 TPS·지연·에러율 검증을 위한 사전 인프라 구성.
+- **부하 테스트 대비**: Locust로 TPS·지연·에러율 검증을 위한 사전 인프라 구성.
 
 > 다이어그램(평시 / 스파이크)은 아래 “아키텍처 다이어그램”에 첨부.
 
@@ -36,7 +36,7 @@
 - 세션/단기 데이터 캐시로 **DB 의존도·지연 감소**.
 - Redis Subnet Group·SG 구성으로 프라이빗 통신.
 
-### 06. (미구현 / 설계 완료, 차후 연결) DynamoDB Global Table
+### 06. DynamoDB Global Table
 - 글로벌 데이터 동기화 구조 설계(세션 메타/랭킹 등).
 - 다지역 확장 시 **읽기 지연 최소화**와 **내결함성**을 위한 선택지로 포함.
 
@@ -66,7 +66,7 @@
 ## 3) 전체 아키텍처 개요
 
 ### 평시 (Normal)
-- 사용자 → **Route 53** → **CloudFront** → **ALB** → **ASG(EC2)** → **Redis** → (옵션/미구현) **DynamoDB Global Table**
+- 사용자 → **Route 53** → **CloudFront** → **ALB** → **ASG(EC2)** → **Redis** → **DynamoDB Global Table**
 - **CloudWatch** 지표 수집, **SNS**로 알람 전파
 - **스케줄 액션**으로 야간 최소 용량 유지
 
@@ -96,6 +96,7 @@
 
 ## 테스트 결과 요약
 - Locust를 활용하여 부하 테스트를 진행.
+- 테스트 진행 시 cvs파일 및 그래프 작성.
 - CloudWatch 지표 수집 가능 확인.
 - 일부 환경 제약으로 Auto Scaling 이벤트 발생이 제한됨.
 - CPU 병목 발생 → **더 좋은 테스트 환경에서 재실행 필요**.
