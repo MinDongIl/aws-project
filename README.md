@@ -94,6 +94,23 @@
 
 ---
 
+## 테스트 결과 요약
+- Locust를 활용하여 부하 테스트를 진행.
+- CloudWatch 지표 수집 가능 확인.
+- 일부 환경 제약으로 Auto Scaling 이벤트 발생이 제한됨.
+- CPU 병목 발생 → **더 좋은 테스트 환경에서 재실행 필요**.
+
+---
+
+## 향후 계획
+- **DynamoDB Global Table**: 현재 설계만 완료, 실제 연결 및 테스트 예정.
+- **CloudFront 경유 부하 테스트**: 로컬 환경 한계로 미완료, 재시도 필요.
+- **DynamoDB 부하 테스트**: 환경 제약으로 실패, 차후 환경 확장 후 진행.
+- **Auto Scaling 동작 검증**: JMeter/Locust 부하 재테스트 필요.
+- 보안 측면 강화: 데이터 암호화 방식(Aurora, Redis, DynamoDB) 검토 및 적용 예정.
+
+---
+
 ## 모니터링·알림 지표(예시)
 
 - **ALB**: `TargetResponseTime`, `HTTPCode_Target_5XX_Count`, `RequestCount`
